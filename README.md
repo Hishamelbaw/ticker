@@ -122,6 +122,10 @@ state and appending an audit-trail event for every real transition.
 2. **Observer** — `ConnectionManager` is the subject, each WebSocket
    connection is an observer; this underlies the Publish-Subscribe EIP.
    [`app/messaging/connection_manager.py`](app/messaging/connection_manager.py)
+3. **Builder** — `_CandleBuilder` assembles an OHLC `Candle` from a
+   sequence of staged `add()` calls (tracking running open/high/low/close)
+   before a final `build()` produces the immutable `Candle`.
+   [`app/messaging/aggregator.py`](app/messaging/aggregator.py)
 
 ## Audit trail
 
@@ -195,8 +199,10 @@ Everything below in one place for the 15-minute walkthrough:
 - **State chart**: states/events/transitions/guards table above,
   implemented via GoF **State** in `state_machine.py`, driven by
   `engine.py`.
-- **2 GoF patterns**: State (`state_machine.py`) and Observer
-  (`connection_manager.py`, underlying Publish-Subscribe).
+- **3 GoF patterns**: State (`state_machine.py`), Observer
+  (`connection_manager.py`, underlying Publish-Subscribe), and Builder
+  (`_CandleBuilder` in `aggregator.py`, staged `add()`/`build()` calls
+  assembling an OHLC `Candle`).
 - **Audit trail**: `EventLog` (event-sourced, append-only) +
   `reconstruct_alert_state` — cite the specific test
   (`test_reconstruct_returns_the_state_as_of_a_point_between_two_real_transitions`)
