@@ -6,7 +6,18 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
     envVars:
-      - key: ALLOWED_ORIGINS
-        sync: false
+      # Render's default Python is too new for pydantic-core's prebuilt
+      # wheels (Sprint 1 lesson). runtime.txt is ignored by Render -- this
+      # env var is what actually pins it.
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      # Replace with the real Netlify URL once it exists (e.g.
+      # https://ticker-sprint2.netlify.app). Comma-separate if you need
+      # more than one origin (e.g. a Netlify preview URL alongside prod).
+      - key: CORS_ALLOWED_ORIGINS
+        value: https://REPLACE-WITH-NETLIFY-URL.netlify.app
+      # SQLite file in the service's own (ephemeral) filesystem -- fine for
+      # this demo: data resets on redeploy/restart, matching the synthetic,
+      # always-regenerating nature of the ticker data itself.
       - key: DATABASE_URL
-        sync: false
+        value: sqlite:///./ticker.db

@@ -27,7 +27,7 @@ async def _send_subscriptions(websocket: WebSocket) -> None:
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket, symbols: str | None = Query(default=None)):
     origin = websocket.headers.get("origin")
-    if origin is not None and origin not in settings.allowed_origins_list:
+    if origin is not None and origin not in settings.cors_allowed_origins_list:
         await websocket.close(code=status.WS_1008_POLICY_VIOLATION)
         return
 
