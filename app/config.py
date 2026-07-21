@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     allowed_origins: str = "http://localhost:3000"
     host: str = "0.0.0.0"
     port: int = 8000
+    database_url: str = "sqlite:///./ticker.db"
 
     @property
     def allowed_origins_list(self) -> list[str]:

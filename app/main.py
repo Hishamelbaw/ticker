@@ -7,7 +7,9 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.audit.event_log import append_event
 from app.config import settings
+from app.db import SessionLocal, init_db
 from app.generator import Tick, TickGenerator, run_generator
 from app.messaging.aggregator import Candle, CandleAggregator
 from app.messaging.connection_manager import manager
@@ -46,8 +48,22 @@ def _serialize_candle(candle: Candle) -> dict[str, Any]:
     }
 
 
+def _log_tick(tick: Tick) -> None:
+    with SessionLocal() as session:
+        append_event(
+            session,
+            entity_type="tick",
+            entity_id=tick.symbol,
+            event_type="tick",
+            payload={"symbol": tick.symbol, "price": tick.price},
+            occurred_at=tick.occurred_at,
+        )
+
+
 async def _handle_tick(event: Event) -> None:
     tick: Tick = event.payload
+    await asyncio.to_thread(_log_tick, tick)
+
     enriched = enricher.enrich(tick)
     await manager.broadcast(tick.symbol, _serialize_tick(enriched))
 
@@ -71,6 +87,7 @@ async def _on_tick(tick: Tick) -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    init_db()
     generator_task = asyncio.create_task(run_generator(TickGenerator(), _on_tick))
     try:
         yield
