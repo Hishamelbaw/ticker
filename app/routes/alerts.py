@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.alerts.engine import apply_ack, apply_cancel
+from app.alerts import engine
 from app.db import SessionLocal
 from app.models import Alert
 from app.schemas import AlertCreate, AlertRead
@@ -21,18 +21,14 @@ def get_session() -> Generator[Session, None, None]:
 
 @router.post("", response_model=AlertRead, status_code=201)
 def create_alert(payload: AlertCreate, session: Session = Depends(get_session)) -> Alert:
-    alert = Alert(
+    return engine.create_alert(
+        session,
         symbol=payload.symbol.upper(),
         threshold=payload.threshold,
         direction=payload.direction,
         expires_at=payload.expires_at,
         ack_window_seconds=payload.ack_window_seconds,
-        current_state="armed",
     )
-    session.add(alert)
-    session.commit()
-    session.refresh(alert)
-    return alert
 
 
 @router.get("", response_model=list[AlertRead])
@@ -50,7 +46,7 @@ def _get_or_404(session: Session, alert_id: int) -> Alert:
 @router.post("/{alert_id}/ack", response_model=AlertRead)
 def ack_alert(alert_id: int, session: Session = Depends(get_session)) -> Alert:
     alert = _get_or_404(session, alert_id)
-    apply_ack(session, alert)
+    engine.apply_ack(session, alert)
     session.refresh(alert)
     return alert
 
@@ -58,6 +54,6 @@ def ack_alert(alert_id: int, session: Session = Depends(get_session)) -> Alert:
 @router.post("/{alert_id}/cancel", response_model=AlertRead)
 def cancel_alert(alert_id: int, session: Session = Depends(get_session)) -> Alert:
     alert = _get_or_404(session, alert_id)
-    apply_cancel(session, alert)
+    engine.apply_cancel(session, alert)
     session.refresh(alert)
     return alert

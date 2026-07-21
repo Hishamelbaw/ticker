@@ -34,6 +34,47 @@ def _commit_transition(
     )
 
 
+def create_alert(
+    session: Session,
+    *,
+    symbol: str,
+    threshold: float,
+    direction: str,
+    expires_at: datetime,
+    ack_window_seconds: int,
+) -> Alert:
+    """Creates an alert, armed, and logs it as the first EventLog row for
+    this entity -- creation is itself a mutation the audit trail must be
+    able to replay, not just the transitions that follow it."""
+    now = datetime.now(timezone.utc)
+    alert = Alert(
+        symbol=symbol,
+        threshold=threshold,
+        direction=direction,
+        expires_at=expires_at,
+        ack_window_seconds=ack_window_seconds,
+        current_state="armed",
+        created_at=now,
+    )
+    session.add(alert)
+    session.flush()  # assigns alert.id so the event can reference it
+
+    append_event(
+        session,
+        entity_type="alert",
+        entity_id=str(alert.id),
+        event_type="CREATED",
+        payload={
+            "symbol": symbol,
+            "threshold": threshold,
+            "direction": direction,
+            "new_state": "armed",
+        },
+        occurred_at=now,
+    )
+    return alert
+
+
 def apply_price_tick(session: Session, alert: Alert, price: float) -> bool:
     old_state = state_for(alert.current_state)
     new_state = old_state.on_tick(alert, price)
