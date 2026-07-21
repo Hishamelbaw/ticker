@@ -1,14 +1,26 @@
+import asyncio
+import contextlib
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
+from app.generator import TickGenerator, run_generator
+
+logging.basicConfig(level=logging.INFO)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    yield
+    generator_task = asyncio.create_task(run_generator(TickGenerator()))
+    try:
+        yield
+    finally:
+        generator_task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await generator_task
 
 
 app = FastAPI(title="Ticker", lifespan=lifespan)
