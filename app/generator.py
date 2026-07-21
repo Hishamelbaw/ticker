@@ -1,11 +1,8 @@
 import asyncio
-import logging
 import random
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from dataclasses import dataclass
 from datetime import datetime, timezone
-
-logger = logging.getLogger("ticker.generator")
 
 SYMBOLS = ["AAPL", "GOOG", "MSFT", "TSLA", "AMZN"]
 STARTING_PRICES = {
@@ -56,7 +53,6 @@ class TickGenerator:
             await asyncio.sleep(self._interval_seconds)
 
 
-async def run_generator(generator: TickGenerator) -> None:
-    # Placeholder sink until messaging/router.py exists (step 3) to dispatch these.
+async def run_generator(generator: TickGenerator, on_tick: Callable[[Tick], Awaitable[None]]) -> None:
     async for tick in generator.stream():
-        logger.info("tick %s $%.2f @ %s", tick.symbol, tick.price, tick.occurred_at.isoformat())
+        await on_tick(tick)
