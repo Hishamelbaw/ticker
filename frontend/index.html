@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Ticker</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <h1>Ticker</h1>
+    <div id="connection-status" class="status status-connecting">connecting&hellip;</div>
+  </header>
+
+  <div id="notifications"></div>
+
+  <section id="subscriptions">
+    <h2>Subscriptions</h2>
+    <p class="hint">Uncheck a symbol to stop receiving its ticks/candles &mdash; only checked symbols update below.</p>
+    <div id="symbol-checkboxes"></div>
+  </section>
+
+  <section id="ticker-section">
+    <h2>Live Ticker</h2>
+    <table id="ticker-table">
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Price</th>
+          <th>% Change</th>
+          <th>Moving Avg</th>
+          <th>Updated</th>
+        </tr>
+      </thead>
+      <tbody id="ticker-body"></tbody>
+    </table>
+  </section>
+
+  <section id="candles-section">
+    <h2>Recent Candles</h2>
+    <table id="candles-table">
+      <thead>
+        <tr>
+          <th>Symbol</th>
+          <th>Open</th>
+          <th>High</th>
+          <th>Low</th>
+          <th>Close</th>
+          <th>Window</th>
+        </tr>
+      </thead>
+      <tbody id="candles-body"></tbody>
+    </table>
+  </section>
+
+  <section id="alerts-section">
+    <h2>Alerts</h2>
+
+    <form id="alert-form">
+      <label>
+        Symbol
+        <select id="alert-symbol" required></select>
+      </label>
+      <label>
+        Direction
+        <select id="alert-direction" required>
+          <option value="above">crosses above</option>
+          <option value="below">crosses below</option>
+        </select>
+      </label>
+      <label>
+        Threshold
+        <input id="alert-threshold" type="number" step="0.01" required />
+      </label>
+      <label>
+        Expires at
+        <input id="alert-expires-at" type="datetime-local" required />
+      </label>
+      <label>
+        Ack window (seconds)
+        <input id="alert-ack-window" type="number" min="1" value="300" required />
+      </label>
+      <button type="submit">Create alert</button>
+    </form>
+
+    <table id="alerts-table">
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Symbol</th>
+          <th>Direction</th>
+          <th>Threshold</th>
+          <th>State</th>
+          <th>Triggered At</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody id="alerts-body"></tbody>
+    </table>
+  </section>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
