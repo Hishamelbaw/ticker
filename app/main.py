@@ -63,7 +63,7 @@ def _serialize_alert_triggered(alert: Alert, price: float) -> dict[str, Any]:
     }
 
 
-def _log_tick_and_evaluate_alerts(tick: Tick) -> list[Alert]:
+def _log_tick(tick: Tick) -> None:
     with SessionLocal() as session:
         append_event(
             session,
@@ -73,6 +73,10 @@ def _log_tick_and_evaluate_alerts(tick: Tick) -> list[Alert]:
             payload={"symbol": tick.symbol, "price": tick.price},
             occurred_at=tick.occurred_at,
         )
+
+
+def _evaluate_alerts(tick: Tick) -> list[Alert]:
+    with SessionLocal() as session:
         triggered = evaluate_tick(session, tick)
         for alert in triggered:
             session.expunge(alert)
@@ -81,9 +85,8 @@ def _log_tick_and_evaluate_alerts(tick: Tick) -> list[Alert]:
 
 async def _handle_tick(event: Event) -> None:
     tick: Tick = event.payload
-    triggered = await asyncio.to_thread(_log_tick_and_evaluate_alerts, tick)
-    for alert in triggered:
-        await manager.broadcast(tick.symbol, _serialize_alert_triggered(alert, tick.price))
+    await asyncio.to_thread(_log_tick, tick)
+    await router.dispatch(Event(type=EventType.ALERT_CHECK, payload=tick))
 
     enriched = enricher.enrich(tick)
     await manager.broadcast(tick.symbol, _serialize_tick(enriched))
@@ -93,12 +96,20 @@ async def _handle_tick(event: Event) -> None:
         await router.dispatch(Event(type=EventType.CANDLE_CLOSE, payload=candle))
 
 
+async def _handle_alert_check(event: Event) -> None:
+    tick: Tick = event.payload
+    triggered = await asyncio.to_thread(_evaluate_alerts, tick)
+    for alert in triggered:
+        await manager.broadcast(tick.symbol, _serialize_alert_triggered(alert, tick.price))
+
+
 async def _handle_candle_close(event: Event) -> None:
     candle: Candle = event.payload
     await manager.broadcast(candle.symbol, _serialize_candle(candle))
 
 
 router.register(EventType.TICK, _handle_tick)
+router.register(EventType.ALERT_CHECK, _handle_alert_check)
 router.register(EventType.CANDLE_CLOSE, _handle_candle_close)
 
 
