@@ -7,6 +7,7 @@ from typing import Any
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.alerts.engine import evaluate_tick
 from app.audit.event_log import append_event
 from app.config import settings
 from app.db import SessionLocal, init_db
@@ -15,6 +16,8 @@ from app.messaging.aggregator import Candle, CandleAggregator
 from app.messaging.connection_manager import manager
 from app.messaging.enricher import EnrichedTick, TickEnricher
 from app.messaging.router import Event, EventType, MessageRouter
+from app.models import Alert
+from app.routes.alerts import router as alerts_router
 from app.routes.ws import router as ws_router
 
 logging.basicConfig(level=logging.INFO)
@@ -48,7 +51,19 @@ def _serialize_candle(candle: Candle) -> dict[str, Any]:
     }
 
 
-def _log_tick(tick: Tick) -> None:
+def _serialize_alert_triggered(alert: Alert, price: float) -> dict[str, Any]:
+    return {
+        "topic": "alerts",
+        "event": "triggered",
+        "alert_id": alert.id,
+        "symbol": alert.symbol,
+        "threshold": alert.threshold,
+        "direction": alert.direction,
+        "price": price,
+    }
+
+
+def _log_tick_and_evaluate_alerts(tick: Tick) -> list[Alert]:
     with SessionLocal() as session:
         append_event(
             session,
@@ -58,11 +73,17 @@ def _log_tick(tick: Tick) -> None:
             payload={"symbol": tick.symbol, "price": tick.price},
             occurred_at=tick.occurred_at,
         )
+        triggered = evaluate_tick(session, tick)
+        for alert in triggered:
+            session.expunge(alert)
+        return triggered
 
 
 async def _handle_tick(event: Event) -> None:
     tick: Tick = event.payload
-    await asyncio.to_thread(_log_tick, tick)
+    triggered = await asyncio.to_thread(_log_tick_and_evaluate_alerts, tick)
+    for alert in triggered:
+        await manager.broadcast(tick.symbol, _serialize_alert_triggered(alert, tick.price))
 
     enriched = enricher.enrich(tick)
     await manager.broadcast(tick.symbol, _serialize_tick(enriched))
@@ -107,6 +128,7 @@ app.add_middleware(
 )
 
 app.include_router(ws_router)
+app.include_router(alerts_router)
 
 
 @app.get("/health")
